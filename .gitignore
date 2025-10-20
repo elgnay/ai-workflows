@@ -1,0 +1,13 @@
+# Downloaded files
+*.xlsx
+*.csv
+
+# OAuth credentials and tokens
+konflux-tracking/credentials.json
+konflux-tracking/token.json
+
+# Dependency directories
+konflux-tracking/bin/
+
+# Tool configurations
+konflux-tracking/.claude
