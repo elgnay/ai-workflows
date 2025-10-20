@@ -1,13 +1,15 @@
-# Downloaded files
+# Temporary files
 *.xlsx
 *.csv
+run-*
 
-# OAuth credentials and tokens
-konflux-tracking/credentials.json
-konflux-tracking/token.json
+# Files containing credentials and tokens
+credentials.json
+token.json
+*.kubeconfig
 
 # Dependency directories
-konflux-tracking/bin/
+*/bin/
 
 # Tool configurations
-konflux-tracking/.claude
+*/.claude
