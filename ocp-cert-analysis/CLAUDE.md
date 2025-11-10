@@ -39,28 +39,29 @@ Extract the hostname (without `https://` and port) for later use.
 
 ## Step 2: Create Working Directory and Retrieve Serving Certificate
 
+**Important:** Ensure you run all commands in this workflow in the same shell session to maintain environment variables like `WORKDIR` and `KUBECONFIG`.
+
 Create a timestamped directory for this analysis run:
 
 ```bash
 # Create working directory and store the path
-TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-WORKDIR="run-${TIMESTAMP}"
-mkdir -p "${WORKDIR}"
-echo "Working directory: ${WORKDIR}"
+TIMESTAMP=$(date +%Y%m%d-%H%M%S) && WORKDIR="run-${TIMESTAMP}" && mkdir -p "${WORKDIR}" && echo "Working directory: ${WORKDIR}" && echo "${WORKDIR}" > .current_workdir
 ```
 
 Retrieve the certificate chain from the API server and separate the leaf certificate from intermediate CAs:
 
 ```bash
 # Get the full chain from the server
-echo | openssl s_client -connect <api-hostname>:6443 -showcerts 2>/dev/null | sed -n '/BEGIN CERTIFICATE/,/END CERTIFICATE/p' > "${WORKDIR}/fullchain.pem"
+WORKDIR=`cat .current_workdir` && echo | openssl s_client -connect <api-hostname>:6443 -showcerts 2>/dev/null > "${WORKDIR}/openssl_output.txt" && echo "Certificate chain retrieved"
 
-# Extract the leaf certificate (first certificate)
-awk '/BEGIN CERTIFICATE/ { n++ } n == 1' "${WORKDIR}/fullchain.pem" > "${WORKDIR}/kube-apiserver-serving-cert.pem"
+# Extract and separate certificates
+WORKDIR=`cat .current_workdir` && sed -n '/BEGIN CERTIFICATE/,/END CERTIFICATE/p' "${WORKDIR}/openssl_output.txt" > "${WORKDIR}/fullchain.pem" && echo "Full chain extracted"
 
-# Extract intermediate CA certificates (remaining certificates)
-awk '/BEGIN CERTIFICATE/ { n++ } n >= 2' "${WORKDIR}/fullchain.pem" > "${WORKDIR}/intermediate-ca.pem"
+# Separate leaf certificate from intermediate CA
+WORKDIR=`cat .current_workdir` && awk '/BEGIN CERTIFICATE/ {n++} n==1' "${WORKDIR}/fullchain.pem" > "${WORKDIR}/kube-apiserver-serving-cert.pem" && awk '/BEGIN CERTIFICATE/ {n++} n>=2' "${WORKDIR}/fullchain.pem" > "${WORKDIR}/intermediate-ca.pem" && ls -lh "${WORKDIR}/"
 ```
+
+**Note:** The working directory path is automatically saved to `.current_workdir` and referenced in subsequent commands using backtick command substitution.
 
 Replace `<api-hostname>` with the hostname from Step 1.
 
@@ -71,19 +72,19 @@ Replace `<api-hostname>` with the hostname from Step 1.
 View the certificate subject and issuer:
 
 ```bash
-openssl x509 -in "${WORKDIR}/kube-apiserver-serving-cert.pem" -noout -subject -issuer
+WORKDIR=`cat .current_workdir` && openssl x509 -in "${WORKDIR}/kube-apiserver-serving-cert.pem" -noout -subject -issuer
 ```
 
 View validity period:
 
 ```bash
-openssl x509 -in "${WORKDIR}/kube-apiserver-serving-cert.pem" -noout -dates
+WORKDIR=`cat .current_workdir` && openssl x509 -in "${WORKDIR}/kube-apiserver-serving-cert.pem" -noout -dates
 ```
 
 View Subject Alternative Names:
 
 ```bash
-openssl x509 -in "${WORKDIR}/kube-apiserver-serving-cert.pem" -noout -ext subjectAltName
+WORKDIR=`cat .current_workdir` && openssl x509 -in "${WORKDIR}/kube-apiserver-serving-cert.pem" -noout -ext subjectAltName
 ```
 
 ---
@@ -152,7 +153,7 @@ From Step 2, check if the issuer contains `CN=kube-apiserver-lb-signer`:
 
 ```bash
 # Review the issuer from Step 2
-openssl x509 -in "${WORKDIR}/kube-apiserver-serving-cert.pem" -noout -issuer
+WORKDIR=`cat .current_workdir` && openssl x509 -in "${WORKDIR}/kube-apiserver-serving-cert.pem" -noout -issuer
 ```
 
 ---
@@ -263,13 +264,13 @@ If this returns empty or nothing, you're using OpenShift-managed certificates.
 Get the OpenShift-managed CA bundle:
 
 ```bash
-oc get configmap kube-apiserver-server-ca -n openshift-kube-apiserver -o jsonpath='{.data.ca-bundle\.crt}' > "${WORKDIR}/kube-apiserver-ca-bundle.crt"
+WORKDIR=`cat .current_workdir` && export KUBECONFIG="/path/to/kubeconfig" && oc get configmap kube-apiserver-server-ca -n openshift-kube-apiserver -o jsonpath='{.data.ca-bundle\.crt}' > "${WORKDIR}/kube-apiserver-ca-bundle.crt"
 ```
 
 Count certificates in the bundle:
 
 ```bash
-grep -c "BEGIN CERTIFICATE" "${WORKDIR}/kube-apiserver-ca-bundle.crt"
+WORKDIR=`cat .current_workdir` && grep -c "BEGIN CERTIFICATE" "${WORKDIR}/kube-apiserver-ca-bundle.crt"
 ```
 
 **Expected:** 4 certificates (lb-signer, localhost-signer, service-network-signer, recovery-signer)
@@ -343,25 +344,31 @@ oc get apiserver cluster -o jsonpath='{.spec.servingCerts.namedCertificates}'
 
 Should return custom certificate configuration.
 
-#### Find Custom CA Bundle
+#### Retrieve Custom CA Bundle from Certificate Secret
 
-Check for custom CA ConfigMap reference:
+For custom certificates, the CA bundle is stored in the custom certificate secret itself (the same secret referenced in `.spec.servingCerts.namedCertificates`).
 
-```bash
-oc get apiserver cluster -o jsonpath='{.spec.clientCA.name}'
-```
-
-If this returns a ConfigMap name, retrieve it:
+First, get the secret name (from Step 3.3):
 
 ```bash
-oc get configmap <configmap-name> -n openshift-config -o jsonpath='{.data.ca-bundle\.crt}' > "${WORKDIR}/custom-ca-bundle.crt"
+oc get apiserver cluster -o jsonpath='{.spec.servingCerts.namedCertificates[0].servingCertificate.name}'
 ```
 
-If empty, list available ConfigMaps in openshift-config:
+Example output: `server-cert-s1`
+
+Extract the CA bundle from the secret's `tls.crt` field:
 
 ```bash
-oc get configmap -n openshift-config | grep -i ca
+WORKDIR=`cat .current_workdir` && SECRET_NAME=$(oc get apiserver cluster -o jsonpath='{.spec.servingCerts.namedCertificates[0].servingCertificate.name}') && oc get secret ${SECRET_NAME} -n openshift-config -o jsonpath='{.data.tls\.crt}' | base64 -d > "${WORKDIR}/custom-ca-bundle.crt" && echo "CA bundle retrieved from secret: ${SECRET_NAME}"
 ```
+
+Count certificates in the bundle:
+
+```bash
+WORKDIR=`cat .current_workdir` && grep -c "BEGIN CERTIFICATE" "${WORKDIR}/custom-ca-bundle.crt"
+```
+
+**Note:** The `tls.crt` field in a custom certificate secret typically contains the full certificate chain (leaf certificate + intermediate CA(s) + root CA). This complete chain is what we use as the CA bundle for verification.
 
 **Next:** Go to Step 5
 
@@ -374,7 +381,7 @@ oc get configmap -n openshift-config | grep -i ca
 Verify the certificate with the OpenShift CA bundle:
 
 ```bash
-openssl verify -CAfile "${WORKDIR}/kube-apiserver-ca-bundle.crt" "${WORKDIR}/kube-apiserver-serving-cert.pem"
+WORKDIR=`cat .current_workdir` && openssl verify -CAfile "${WORKDIR}/kube-apiserver-ca-bundle.crt" "${WORKDIR}/kube-apiserver-serving-cert.pem"
 ```
 
 **Expected output:** `<workdir>/kube-apiserver-serving-cert.pem: OK`
@@ -387,17 +394,17 @@ For RedHat-managed certificates signed by well-known CAs (like Let's Encrypt), v
 
 **On macOS:**
 ```bash
-openssl verify -untrusted "${WORKDIR}/intermediate-ca.pem" "${WORKDIR}/kube-apiserver-serving-cert.pem"
+WORKDIR=`cat .current_workdir` && openssl verify -untrusted "${WORKDIR}/intermediate-ca.pem" "${WORKDIR}/kube-apiserver-serving-cert.pem"
 ```
 
 **On Linux (RHEL/Fedora/CentOS):**
 ```bash
-openssl verify -CAfile /etc/pki/tls/certs/ca-bundle.crt -untrusted "${WORKDIR}/intermediate-ca.pem" "${WORKDIR}/kube-apiserver-serving-cert.pem"
+WORKDIR=`cat .current_workdir` && openssl verify -CAfile /etc/pki/tls/certs/ca-bundle.crt -untrusted "${WORKDIR}/intermediate-ca.pem" "${WORKDIR}/kube-apiserver-serving-cert.pem"
 ```
 
 **On Linux (Debian/Ubuntu):**
 ```bash
-openssl verify -CApath /etc/ssl/certs -untrusted "${WORKDIR}/intermediate-ca.pem" "${WORKDIR}/kube-apiserver-serving-cert.pem"
+WORKDIR=`cat .current_workdir` && openssl verify -CApath /etc/ssl/certs -untrusted "${WORKDIR}/intermediate-ca.pem" "${WORKDIR}/kube-apiserver-serving-cert.pem"
 ```
 
 **Expected output:** `<workdir>/kube-apiserver-serving-cert.pem: OK`
@@ -410,17 +417,17 @@ Verify with system trust store, providing intermediate CAs:
 
 **On macOS:**
 ```bash
-openssl verify -untrusted "${WORKDIR}/intermediate-ca.pem" "${WORKDIR}/kube-apiserver-serving-cert.pem"
+WORKDIR=`cat .current_workdir` && openssl verify -untrusted "${WORKDIR}/intermediate-ca.pem" "${WORKDIR}/kube-apiserver-serving-cert.pem"
 ```
 
 **On Linux (RHEL/Fedora/CentOS):**
 ```bash
-openssl verify -CAfile /etc/pki/tls/certs/ca-bundle.crt -untrusted "${WORKDIR}/intermediate-ca.pem" "${WORKDIR}/kube-apiserver-serving-cert.pem"
+WORKDIR=`cat .current_workdir` && openssl verify -CAfile /etc/pki/tls/certs/ca-bundle.crt -untrusted "${WORKDIR}/intermediate-ca.pem" "${WORKDIR}/kube-apiserver-serving-cert.pem"
 ```
 
 **On Linux (Debian/Ubuntu):**
 ```bash
-openssl verify -CApath /etc/ssl/certs -untrusted "${WORKDIR}/intermediate-ca.pem" "${WORKDIR}/kube-apiserver-serving-cert.pem"
+WORKDIR=`cat .current_workdir` && openssl verify -CApath /etc/ssl/certs -untrusted "${WORKDIR}/intermediate-ca.pem" "${WORKDIR}/kube-apiserver-serving-cert.pem"
 ```
 
 **Expected output:** `<workdir>/kube-apiserver-serving-cert.pem: OK`
@@ -434,7 +441,7 @@ openssl verify -CApath /etc/ssl/certs -untrusted "${WORKDIR}/intermediate-ca.pem
 Verify the certificate with the custom CA bundle:
 
 ```bash
-openssl verify -CAfile "${WORKDIR}/custom-ca-bundle.crt" "${WORKDIR}/kube-apiserver-serving-cert.pem"
+WORKDIR=`cat .current_workdir` && openssl verify -CAfile "${WORKDIR}/custom-ca-bundle.crt" "${WORKDIR}/kube-apiserver-serving-cert.pem"
 ```
 
 **Expected output:** `<workdir>/kube-apiserver-serving-cert.pem: OK`
@@ -448,23 +455,7 @@ openssl verify -CAfile "${WORKDIR}/custom-ca-bundle.crt" "${WORKDIR}/kube-apiser
 Show the complete trust path from server certificate to root CA:
 
 ```bash
-echo "=== Certificate Chain (Trust Path) ==="
-echo ""
-echo "1. Leaf Certificate (Server):"
-openssl x509 -in "${WORKDIR}/kube-apiserver-serving-cert.pem" -noout -subject
-echo ""
-echo "2. Issuing CA:"
-openssl x509 -in "${WORKDIR}/kube-apiserver-serving-cert.pem" -noout -issuer
-
-# Display intermediate CA if present
-if [ -s "${WORKDIR}/intermediate-ca.pem" ]; then
-    echo ""
-    echo "3. Intermediate CA:"
-    openssl x509 -in "${WORKDIR}/intermediate-ca.pem" -noout -subject -issuer
-else
-    echo ""
-    echo "3. No intermediate CA (direct to root CA)"
-fi
+WORKDIR=`cat .current_workdir` && echo "=== Certificate Chain (Trust Path) ===" && echo "" && echo "1. Leaf Certificate (Server):" && openssl x509 -in "${WORKDIR}/kube-apiserver-serving-cert.pem" -noout -subject && echo "" && echo "2. Issuing CA:" && openssl x509 -in "${WORKDIR}/kube-apiserver-serving-cert.pem" -noout -issuer && if [ -s "${WORKDIR}/intermediate-ca.pem" ]; then echo "" && echo "3. Intermediate CA:" && openssl x509 -in "${WORKDIR}/intermediate-ca.pem" -noout -subject -issuer; else echo "" && echo "3. No intermediate CA (direct to root CA)"; fi
 ```
 
 ### Verify if the CA is Self-Signed (Root CA)
@@ -473,12 +464,12 @@ Check if the issuing CA is a self-signed root CA:
 
 **For OpenShift-Managed certificates:**
 ```bash
-awk '/BEGIN CERTIFICATE/ { n++ } n == 1' "${WORKDIR}/kube-apiserver-ca-bundle.crt" | openssl x509 -noout -subject -issuer
+WORKDIR=`cat .current_workdir` && awk '/BEGIN CERTIFICATE/ { n++ } n == 1' "${WORKDIR}/kube-apiserver-ca-bundle.crt" | openssl x509 -noout -subject -issuer
 ```
 
 **For Custom CA:**
 ```bash
-awk '/BEGIN CERTIFICATE/ { n++ } n == 1' "${WORKDIR}/custom-ca-bundle.crt" | openssl x509 -noout -subject -issuer
+WORKDIR=`cat .current_workdir` && awk '/BEGIN CERTIFICATE/ { n++ } n == 1' "${WORKDIR}/custom-ca-bundle.crt" | openssl x509 -noout -subject -issuer
 ```
 
 If **subject == issuer**, it's a self-signed root CA (typical for OpenShift-managed certs).
@@ -487,7 +478,7 @@ If **subject ≠ issuer**, there's an intermediate CA, and you should continue c
 
 ```bash
 # Check second certificate in bundle
-awk '/BEGIN CERTIFICATE/ { n++ } n == 2' "${WORKDIR}/kube-apiserver-ca-bundle.crt" | openssl x509 -noout -subject -issuer
+WORKDIR=`cat .current_workdir` && awk '/BEGIN CERTIFICATE/ { n++ } n == 2' "${WORKDIR}/kube-apiserver-ca-bundle.crt" | openssl x509 -noout -subject -issuer
 ```
 
 Continue until you find the root CA where subject == issuer.
@@ -533,7 +524,7 @@ Trust Chain: Server Cert → Intermediate CA → Root CA
 Test with the OpenShift CA bundle:
 
 ```bash
-curl --cacert "${WORKDIR}/kube-apiserver-ca-bundle.crt" https://<api-url>/version
+WORKDIR=`cat .current_workdir` && curl --cacert "${WORKDIR}/kube-apiserver-ca-bundle.crt" https://<api-url>/version
 ```
 
 **Expected:** JSON response with Kubernetes version information.
@@ -569,7 +560,7 @@ curl https://<api-url>/version
 Test with the custom CA bundle:
 
 ```bash
-curl --cacert "${WORKDIR}/custom-ca-bundle.crt" https://<api-url>/version
+WORKDIR=`cat .current_workdir` && curl --cacert "${WORKDIR}/custom-ca-bundle.crt" https://<api-url>/version
 ```
 
 **Expected:** JSON response with Kubernetes version information.
@@ -630,4 +621,4 @@ Otherwise, it's a **Self-Managed OpenShift Cluster**.
 | **Type 1: OpenShift-Managed**<br>(Default for Self-Managed) | `kube-apiserver-server-ca` ConfigMap in `openshift-kube-apiserver` namespace | Use CA bundle file |
 | **Type 2: RedHat-Managed**<br>(Managed Clusters Only) | Service-specific ConfigMap (ROSA, ARO, etc.) | Use CA bundle file |
 | **Type 3a: Custom CA - Well-Known**<br>(Self-Managed Only) | System trust store | Use system trust store |
-| **Type 3b: Custom CA - Self-Signed**<br>(Self-Managed Only) | ConfigMap referenced in `apiserver cluster` resource in `openshift-config` namespace | Use CA bundle file |
+| **Type 3b: Custom CA - Self-Signed**<br>(Self-Managed Only) | Custom certificate secret's `tls.crt` field (referenced in `.spec.servingCerts.namedCertificates`) in `openshift-config` namespace | Use CA bundle file |
