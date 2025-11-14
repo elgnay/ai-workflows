@@ -34,6 +34,7 @@ First, list all sheets in the Excel file to identify which versions are availabl
 ```
 
 This will show sheets like:
+- ACM 2.16, MCE 2.11
 - ACM 2.15, MCE 2.10
 - ACM 2.14, MCE 2.9
 - ACM 2.13, MCE 2.8
@@ -48,6 +49,10 @@ This will show sheets like:
 Export each ACM and MCE version pair sheet to CSV format:
 
 ```bash
+# For ACM 2.16 & MCE 2.11
+./bin/xlsx export --file "Konflux Tracking (ACM _ MCE).xlsx" --sheet "ACM 2.16" --output acm_2_16.csv --format csv
+./bin/xlsx export --file "Konflux Tracking (ACM _ MCE).xlsx" --sheet "MCE 2.11" --output mce_2_11.csv --format csv
+
 # For ACM 2.15 & MCE 2.10
 ./bin/xlsx export --file "Konflux Tracking (ACM _ MCE).xlsx" --sheet "ACM 2.15" --output acm_2_15.csv --format csv
 ./bin/xlsx export --file "Konflux Tracking (ACM _ MCE).xlsx" --sheet "MCE 2.10" --output mce_2_10.csv --format csv
@@ -121,8 +126,9 @@ Pair ACM and MCE versions as follows:
 
 | ACM Version | MCE Version | Release Relationship |
 |-------------|-------------|---------------------|
-| ACM 2.15 | MCE 2.10 | Latest |
-| ACM 2.14 | MCE 2.9 | Previous |
+| ACM 2.16 | MCE 2.11 | Latest |
+| ACM 2.15 | MCE 2.10 | Previous |
+| ACM 2.14 | MCE 2.9 | - |
 | ACM 2.13 | MCE 2.8 | - |
 | ACM 2.12 | MCE 2.7 | - |
 | ACM 2.11 | MCE 2.6 | - |
@@ -139,12 +145,13 @@ Use the following emoji indicators for quick visual status:
 
 The final output should contain:
 
-1. **Individual Version Pair Sections** (5 sections total)
-   - Version Pair 1: ACM 2.15 & MCE 2.10
-   - Version Pair 2: ACM 2.14 & MCE 2.9
-   - Version Pair 3: ACM 2.13 & MCE 2.8
-   - Version Pair 4: ACM 2.12 & MCE 2.7
-   - Version Pair 5: ACM 2.11 & MCE 2.6
+1. **Individual Version Pair Sections** (6 sections total)
+   - Version Pair 1: ACM 2.16 & MCE 2.11
+   - Version Pair 2: ACM 2.15 & MCE 2.10
+   - Version Pair 3: ACM 2.14 & MCE 2.9
+   - Version Pair 4: ACM 2.13 & MCE 2.8
+   - Version Pair 5: ACM 2.12 & MCE 2.7
+   - Version Pair 6: ACM 2.11 & MCE 2.6
 
 2. **Each section includes:**
    - Combined components table (ACM + MCE)
@@ -178,21 +185,21 @@ For each version pair, track:
 
 1. **Compare version pairs** to identify trends (improving vs degrading)
 2. **Track specific components** across versions to see their history
-3. **Focus on latest version** (ACM 2.15 & MCE 2.10) for immediate action items
+3. **Focus on latest version** (ACM 2.16 & MCE 2.11) for immediate action items
 4. **Use older versions** (MCE 2.8, MCE 2.6) as reference for 100% compliant configurations
 
 ## Example Quick Analysis Commands
 
 ```bash
 # Count Server Foundation components in a specific version
-grep -i "Server Foundation" acm_2_15.csv | wc -l
-grep -i "Server Foundation" mce_2_10.csv | wc -l
+grep -i "Server Foundation" acm_2_16.csv | wc -l
+grep -i "Server Foundation" mce_2_11.csv | wc -l
 
 # Find EC failures in a specific version
-grep -i "Server Foundation" mce_2_10.csv | grep -E "Push Failure|Not Compliant"
+grep -i "Server Foundation" mce_2_11.csv | grep -E "Push Failure|Not Compliant"
 
 # View all Server Foundation component details
-grep -i "Server Foundation" mce_2_10.csv
+grep -i "Server Foundation" mce_2_11.csv
 ```
 
 ## Cleanup
@@ -205,4 +212,4 @@ rm acm_*.csv mce_*.csv
 
 This ensures the workspace stays clean and prevents stale data from being used in future analyses.
 
-**IMPORTANT:** After cleanup, do NOT add any additional commentary. The analysis is complete once the 5 version pair sections are shown and CSV files are cleaned up.
+**IMPORTANT:** After cleanup, do NOT add any additional commentary. The analysis is complete once the 6 version pair sections are shown and CSV files are cleaned up.
