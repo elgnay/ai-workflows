@@ -110,7 +110,7 @@ run-YYYYMMDD-HHMMSS/
 ### Type 1: OpenShift-Managed Certificate
 - **Cluster Type**: Self-Managed OpenShift
 - **Issuer**: `CN=kube-apiserver-lb-signer`
-- **CA Bundle**: Retrieved from `kube-apiserver-server-ca` ConfigMap
+- **CA Bundle**: Retrieved from `kube-apiserver-server-ca` ConfigMap in `openshift-kube-apiserver` namespace
 - **Custom Config**: No custom certificates configured
 
 ### Type 2: RedHat-Managed Certificate

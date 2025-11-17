@@ -13,3 +13,6 @@ token.json
 
 # Tool configurations
 */.claude
+*/GEMINI.md
+*/kubeconfig.*
+*/.current_workdir
