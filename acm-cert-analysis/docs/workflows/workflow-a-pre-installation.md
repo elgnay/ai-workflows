@@ -11,6 +11,8 @@ This workflow analyzes whether it's safe to install Red Hat Advanced Cluster Man
 
 ## Step A1: Verify ACM is Not Installed
 
+**🔴 CRITICAL**: If using automation/AI agents, prepend `export KUBECONFIG="/path/to/your/kubeconfig" &&` to all `oc` commands in this workflow. Refer to the KUBECONFIG persistence warning in [Common Certificate Analysis Step 1](common-steps.md#step-1-set-up-kubeconfig-mandatory).
+
 First, confirm that ACM is not already installed on this cluster using a two-step check:
 
 ### Step A1.1: Check if ACM CRD Exists
@@ -113,8 +115,8 @@ You have two options for proceeding with ACM installation:
 4. **Simplified Operations** (for well-known CAs): Can use `UseSystemTruststore` strategy
 
 **Custom Certificate Options:**
-- **Option 1**: Use a Well-Known CA (Type 3a) - Recommended for most environments
-- **Option 2**: Use a Self-Signed/Private CA (Type 3b) - Suitable for air-gapped environments
+- **Option 1**: Use a Well-Known CA (Type 3a)
+- **Option 2**: Use a Self-Signed/Private CA (Type 3b)
 
 **Next Steps:**
 1. Configure custom certificates for the kube-apiserver
@@ -254,8 +256,8 @@ for i in `seq 1 ${CERT_COUNT}`; do
   awk "/BEGIN CERTIFICATE/ {n++} n==${i}" /tmp/custom-cert-chain.pem | openssl x509 -noout -subject -issuer
 
   # Check if this is a self-signed certificate (root CA)
-  SUBJECT=`awk "/BEGIN CERTIFICATE/ {n++} n==${i}" /tmp/custom-cert-chain.pem | openssl x509 -noout -subject`
-  ISSUER=`awk "/BEGIN CERTIFICATE/ {n++} n==${i}" /tmp/custom-cert-chain.pem | openssl x509 -noout -issuer`
+  SUBJECT=`awk "/BEGIN CERTIFICATE/ {n++} n==${i}" /tmp/custom-cert-chain.pem | openssl x509 -noout -subject | sed 's/subject=//'`
+  ISSUER=`awk "/BEGIN CERTIFICATE/ {n++} n==${i}" /tmp/custom-cert-chain.pem | openssl x509 -noout -issuer | sed 's/issuer=//'`
 
   if [ "${SUBJECT}" = "${ISSUER}" ]; then
     echo "  → This is a ROOT CA (self-signed) ✅"
@@ -265,8 +267,8 @@ done
 
 # Check if the last certificate is the root CA
 echo "=== Root CA Verification ==="
-LAST_CERT_SUBJECT=`awk "/BEGIN CERTIFICATE/ {n++} n==${CERT_COUNT}" /tmp/custom-cert-chain.pem | openssl x509 -noout -subject`
-LAST_CERT_ISSUER=`awk "/BEGIN CERTIFICATE/ {n++} n==${CERT_COUNT}" /tmp/custom-cert-chain.pem | openssl x509 -noout -issuer`
+LAST_CERT_SUBJECT=`awk "/BEGIN CERTIFICATE/ {n++} n==${CERT_COUNT}" /tmp/custom-cert-chain.pem | openssl x509 -noout -subject | sed 's/subject=//'`
+LAST_CERT_ISSUER=`awk "/BEGIN CERTIFICATE/ {n++} n==${CERT_COUNT}" /tmp/custom-cert-chain.pem | openssl x509 -noout -issuer | sed 's/issuer=//'`
 
 if [ "${LAST_CERT_SUBJECT}" = "${LAST_CERT_ISSUER}" ]; then
   echo "✅ Root CA is included in the certificate chain"
@@ -337,14 +339,43 @@ openssl x509 -in "${WORKDIR}/serving-cert.pem" -noout -issuer
 
 **Risk Level**: 🟢 **LOW**
 
-#### Recommended Configuration: Use System Truststore
+#### ACM Configuration: Two Options
 
-Since your certificate is signed by a well-known CA, configure ACM to use the system truststore. This provides the same benefits as Type 2.
+Since your certificate is signed by a well-known CA **AND** the root CA is included in the chain, you have two options:
 
-**After installing ACM, configure the KubeAPIServer verify strategy:**
+##### Option A: Standard ACM Configuration (Default)
+
+**How it works:**
+- ACM automatically distributes the complete CA bundle (leaf + intermediate + root CA) to managed clusters
+- Managed clusters validate the hub using the distributed CA bundle
+- Works perfectly because the root CA is included
+
+**Next Steps:**
+1. ✅ Proceed with ACM installation
+2. ✅ Use standard managed cluster import process
+3. ✅ No additional configuration needed
+4. ✅ Monitor certificate expiration and ensure renewal automation is configured
+
+**Benefits:**
+- ✅ No additional configuration required
+- ✅ Protected against intermediate CA rotation (root CA included)
+- ✅ Standard ACM workflow
+
+---
+
+##### Option B: Use System Truststore (Recommended for Simplicity)
+
+**How it works:**
+- Managed clusters use their system trust store to validate the hub
+- ACM doesn't distribute CA bundles
+- Simpler operations
+
+**Configuration:**
+
+After installing ACM, configure the KubeAPIServer verify strategy:
 
 ```bash
-# Create or patch the global
+# Create or patch the global KlusterletConfig
 cat <<EOF | oc apply -f -
 apiVersion: config.open-cluster-management.io/v1alpha1
 kind: KlusterletConfig
@@ -356,16 +387,7 @@ spec:
 EOF
 ```
 
-#### Benefits of UseSystemTruststore
-
-1. **No CA Bundle Distribution**: Managed clusters automatically trust the hub using their system CA store
-2. **Simplified Import Process**: No need to extract and provide custom CA bundles during import
-3. **Automatic Trust**: Works seamlessly with well-known CAs
-4. **Certificate Rotation Protection**: Root CA inclusion protects against intermediate CA changes
-
-#### Verification
-
-After configuring, verify the setting:
+Verify the configuration:
 
 ```bash
 oc get klusterletconfig global -o jsonpath='{.spec.hubKubeAPIServerConfig.serverVerificationStrategy}'
@@ -373,12 +395,30 @@ oc get klusterletconfig global -o jsonpath='{.spec.hubKubeAPIServerConfig.server
 
 **Expected output**: `UseSystemTruststore`
 
-#### Next Steps
+**Benefits:**
+1. **No CA Bundle Distribution**: Managed clusters automatically trust the hub using their system CA store
+2. **Simplified Import Process**: No need to extract and provide custom CA bundles during import
+3. **Automatic Trust**: Works seamlessly with well-known CAs
+4. **Reduced Operational Overhead**: Eliminates CA bundle management
 
+**Next Steps:**
 1. ✅ Proceed with ACM installation
 2. ✅ Configure `UseSystemTruststore` strategy after ACM installation
 3. ✅ Use standard managed cluster import process (no custom CA bundle needed)
 4. ✅ Monitor certificate expiration and ensure renewal automation is configured
+
+---
+
+#### Summary for Type 3a with Root CA Included
+
+**Both options work equally well. Choose based on your preference:**
+
+| Aspect | Option A (Standard) | Option B (UseSystemTruststore) |
+|--------|-------------------|-------------------------------|
+| **Rotation Protected?** | ✅ Yes (root CA included) | ✅ Yes (system trust store) |
+| **Configuration Needed?** | ❌ No | ✅ Yes (simple) |
+| **Operational Complexity** | Standard | Simpler |
+| **Recommendation** | Good default choice | Recommended for simplicity |
 
 **Reference**: [ACM Documentation - Configure Hub Cluster KubeAPIServer Certificate Validation](https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.14/html/clusters/cluster_mce_overview#config-hub-kube-api-server)
 
@@ -391,11 +431,7 @@ oc get klusterletconfig global -o jsonpath='{.spec.hubKubeAPIServerConfig.server
 
 #### ✅ Safe to Install ACM (with CA Bundle Management)
 
-**Risk Level**: 🟡 **MEDIUM**
-
-#### Configuration: Do NOT Use System Truststore
-
-Since your certificate is signed by a private CA (not in public trust stores), **do NOT use `UseSystemTruststore`** - the system trust store does not contain your private CA.
+**Risk Level**: 🟢 **LOW**
 
 **Important**: ACM automatically handles CA bundle distribution to managed clusters during import. You do not need to manually provide the CA bundle.
 
@@ -408,10 +444,9 @@ Since your certificate is signed by a private CA (not in public trust stores), *
 
 #### Operational Considerations
 
-1. **ACM Configuration**: Do NOT use `UseSystemTruststore` for private CAs
-2. **PKI Infrastructure**: Ensure your PKI infrastructure is reliable and well-maintained
-3. **CA Certificate Expiration**: Monitor root CA expiration (typically years in the future)
-4. **Automatic CA Bundle**: ACM automatically distributes the CA bundle from the custom certificate secret to managed clusters
+1. **PKI Infrastructure**: Ensure your PKI infrastructure is reliable and well-maintained
+2. **CA Certificate Expiration**: Monitor root CA expiration (typically years in the future)
+3. **Automatic CA Bundle**: ACM automatically distributes the CA bundle from the custom certificate secret to managed clusters
 
 #### Next Steps
 
@@ -436,83 +471,202 @@ Current chain only contains:
 Missing: Root CA
 ```
 
-**Result**: ⚠️ **NOT SAFE - Update Required Before ACM Installation**
+**Result**: ⚠️ **Requires Special Configuration**
 
-### Required Action: Add Root CA to Certificate Secret
+**The Problem:**
+- The certificate chain is missing the root CA
+- ACM will distribute this incomplete chain to managed clusters
+- When you rotate certificates in the future (especially if signed by a different intermediate CA), managed clusters will fail validation and enter **unknown state**
 
-Before installing ACM, you must update the certificate secret to include the root CA.
+**Next Steps:** Determine if you have Type 3a or Type 3b, then follow the appropriate section below.
 
-#### Steps to Add Root CA
+---
 
-1. **Obtain the root CA certificate** from your CA provider or PKI administrator
+#### For Type 3a (Well-Known CA) with Missing Root CA
 
-2. **Create the complete certificate chain**:
+**Available Options:** You have two options to resolve this issue.
+
+### Understanding the Situation (Type 3a Only)
+
+**"Will ACM work now?"**
+- **Yes** - ACM will work currently with the incomplete chain
+- HTTP/HTTPS clients (including ACM components) can validate using system trust stores
+- Managed cluster imports will succeed
+
+**"Will it keep working?"**
+- **Depends on your ACM configuration:**
+  - **Without UseSystemTruststore**: ❌ Rotation risk exists
+    - ACM distributes incomplete CA bundle to managed clusters
+    - When intermediate CA changes → Managed clusters fail validation and enter "unknown" state
+  - **With UseSystemTruststore**: ✅ No rotation risk
+    - ACM doesn't distribute CA bundle
+    - Managed clusters use system trust store (which has root CA)
+    - Works seamlessly even when intermediate CA changes
+
+**"Is this the right way?"**
+- **Best practice**: Include the complete chain with root CA (Option 1)
+- **Alternative for well-known CAs**: Use UseSystemTruststore strategy (Option 2)
+
+---
+
+### Choose Your Approach (Type 3a)
+
+#### Option 1: Add Root CA to Certificate Secret (Best Practice)
+
+**What needs to be done:**
+1. Obtain the root CA certificate from your CA provider
+   - For Let's Encrypt: Download ISRG Root X1 from https://letsencrypt.org/certificates/
+   - For other CAs: Contact your CA provider or PKI administrator
+2. Update the certificate secret to include the complete chain: leaf certificate + intermediate CA(s) + root CA
+3. Wait for the API server to reload with the new certificate
+4. Re-run this workflow to verify the root CA is included
+5. Proceed with ACM installation
+
+**Benefits:**
+- ✅ Follows PKI best practices
+- ✅ Works with or without UseSystemTruststore
+- ✅ Protected against intermediate CA rotation
+- ✅ Future-proof configuration
+
+**ACM Configuration:**
+- UseSystemTruststore is **optional** (recommended for simplicity)
+- Works well even without UseSystemTruststore
+
+---
+
+#### Option 2: Use UseSystemTruststore Strategy (Well-Known CAs Only)
+
+**Available for**: Type 3a only (well-known CAs like Let's Encrypt, DigiCert, etc.)
+
+**Not available for**: Type 3b (self-signed/private CAs not in system trust store)
+
+**What needs to be done:**
+1. Proceed with ACM installation with the current certificate configuration
+2. **REQUIRED**: Configure UseSystemTruststore after ACM installation (see configuration below)
+
+**Benefits:**
+- ✅ No certificate secret updates needed
+- ✅ Solves rotation issue completely
+- ✅ Simplified operations
+
+**Limitation:**
+- ⚠️ **UseSystemTruststore configuration is REQUIRED** - not optional
+- ⚠️ Without it, managed clusters will fail after intermediate CA rotation
+
+**ACM Configuration (REQUIRED for Option 2):**
+
+After installing ACM, you **MUST** configure UseSystemTruststore:
 
 ```bash
-# Combine leaf cert + intermediate CA + root CA
-cat /path/to/api-server-cert.pem \
-    /path/to/intermediate-ca.pem \
-    /path/to/root-ca.pem > /tmp/fullchain.pem
-
-# Verify the chain is complete
-grep -c "BEGIN CERTIFICATE" /tmp/fullchain.pem
-# Should be 3 (or more if multiple intermediates)
-
-# Verify the last cert is self-signed (root CA)
-awk '/BEGIN CERTIFICATE/ {n++} END {print n}' /tmp/fullchain.pem | read TOTAL
-awk "/BEGIN CERTIFICATE/ {n++} n==${TOTAL}" /tmp/fullchain.pem | openssl x509 -noout -subject -issuer
-# subject and issuer should be identical
+# REQUIRED: Configure UseSystemTruststore strategy
+cat <<EOF | oc apply -f -
+apiVersion: config.open-cluster-management.io/v1alpha1
+kind: KlusterletConfig
+metadata:
+  name: global
+spec:
+  hubKubeAPIServerConfig:
+    serverVerificationStrategy: UseSystemTruststore
+EOF
 ```
 
-3. **Update the secret**:
-
+Verify the configuration:
 ```bash
-# Backup the existing secret
-SECRET_NAME=`oc get apiserver cluster -o jsonpath='{.spec.servingCerts.namedCertificates[0].servingCertificate.name}'`
-oc get secret ${SECRET_NAME} -n openshift-config -o yaml > /tmp/secret-backup.yaml
-
-# Delete and recreate with full chain
-oc delete secret ${SECRET_NAME} -n openshift-config
-
-oc create secret tls ${SECRET_NAME} \
-  --cert=/tmp/fullchain.pem \
-  --key=/path/to/api-server-key.pem \
-  -n openshift-config
+oc get klusterletconfig global -o jsonpath='{.spec.hubKubeAPIServerConfig.serverVerificationStrategy}'
 ```
 
-4. **Verify the update**:
+**Expected output**: `UseSystemTruststore`
 
-```bash
-# The API server will automatically reload (may take a few minutes)
-# Wait for kube-apiserver pods to rollout
-oc get pods -n openshift-kube-apiserver -w
+**Why this works:**
+- Managed clusters validate the hub using their system trust store (which includes the root CA)
+- ACM doesn't distribute the incomplete CA bundle
+- Intermediate CA rotation is handled transparently by the system trust store
 
-# Verify the new certificate chain
-echo | openssl s_client -connect <api-hostname>:6443 -showcerts 2>/dev/null | grep -c "BEGIN CERTIFICATE"
-# Should show the complete chain including root CA
-```
+---
 
-5. **Re-run the Root CA verification check** (from above) to confirm ✅
+#### For Type 3b (Self-Signed/Private CA) with Missing Root CA
 
-6. **Proceed with ACM installation** after verification succeeds
+**Required Action:** The root CA certificate **MUST** be added to the certificate secret before installing ACM.
+
+**What needs to be done:**
+1. Obtain the root CA certificate from your PKI administrator
+2. Update the certificate secret to include the complete chain: leaf certificate + intermediate CA(s) + root CA
+3. Wait for the API server to reload with the new certificate
+4. Re-run this workflow to verify the root CA is included
+5. Proceed with ACM installation
+
+**Benefits of adding the root CA:**
+- ✅ ACM installation will be safe
+- ✅ Protected against intermediate CA rotation
+- ✅ Managed clusters will trust the root CA
+- ✅ Future certificate rotations will work seamlessly
+
+---
+
+### Summary: Root CA Not Included
+
+**For Type 3a (Well-Known CA):**
+
+| Approach | Best For | UseSystemTruststore | Rotation Protected |
+|----------|----------|---------------------|-------------------|
+| **Option 1**: Add Root CA | Best practice, future-proof | Optional | ✅ Yes |
+| **Option 2**: Use UseSystemTruststore | Quick deployment, well-known CAs | **REQUIRED** | ✅ Yes |
+
+**For Type 3b (Self-Signed/Private CA):**
+
+| Approach | Status |
+|----------|--------|
+| **Option 1**: Add Root CA | ✅ **REQUIRED** - Only viable option |
+| **Option 2**: Use UseSystemTruststore | ❌ Not available (root CA not in system trust store) |
+
+**Important**: For Type 3b with missing root CA, you **MUST** add the root CA to the certificate secret before installing ACM. UseSystemTruststore is not an option because the private/self-signed root CA is not in the system trust store.
 
 ---
 
 ### Summary for Type 3
 
-| Check | Status | Action Required |
-|-------|--------|-----------------|
-| Root CA included in cert chain | ✅ | Proceed based on sub-type (A2-C-1 or A2-C-2) |
-| Root CA NOT included in cert chain | ⚠️ | Update certificate secret before installing ACM |
+#### Root CA Included in Certificate Chain
 
-**Sub-Type Configuration:**
+| Sub-Type | UseSystemTruststore | Status |
+|----------|---------------------|--------|
+| **Type 3a** (Well-Known CA) | Optional (recommended for simplicity) | ✅ Safe to install - both options work |
+| **Type 3b** (Self-Signed/Private CA) | ❌ Not available | ✅ Safe to install - ACM distributes CA bundle |
 
-| Sub-Type | CA Type | UseSystemTruststore | CA Bundle Required |
-|----------|---------|---------------------|-------------------|
-| Type 3a | Well-Known CA | ✅ Recommended | ❌ No |
-| Type 3b | Self-Signed/Private CA | ❌ Do Not Use | ✅ Yes |
+**For Type 3a with Root CA:**
+- **Option A**: Standard ACM (no extra config) - Works well
+- **Option B**: UseSystemTruststore - Also works well, simpler operations
 
-**Important**: Do not install ACM until the root CA is included in the certificate chain. Otherwise, certificate rotation with a different intermediate CA will cause managed clusters to enter an unknown state.
+**For Type 3b with Root CA:**
+- **Only option**: Standard ACM - ACM distributes the complete CA bundle
+- UseSystemTruststore doesn't work (private root CA not in system trust store)
+
+---
+
+#### Root CA NOT Included in Certificate Chain
+
+| Sub-Type | Required Action | UseSystemTruststore |
+|----------|----------------|---------------------|
+| **Type 3a** (Well-Known CA) | Choose Option 1 or 2 below | **REQUIRED** for Option 2 |
+| **Type 3b** (Self-Signed/Private CA) | **MUST** add root CA (Option 1 only) | ❌ Not available |
+
+**For Type 3a without Root CA:**
+- **Option 1**: Add root CA to cert secret (best practice) - UseSystemTruststore optional
+- **Option 2**: Keep incomplete chain + UseSystemTruststore (REQUIRED) - Solves rotation issue
+
+**For Type 3b without Root CA:**
+- **Only option**: Add root CA to cert secret before installing ACM
+- UseSystemTruststore doesn't work (private root CA not in system trust store)
+
+---
+
+**Key Insight**:
+
+The **UseSystemTruststore strategy** serves different purposes depending on the situation:
+
+| Scenario | Purpose of UseSystemTruststore |
+|----------|-------------------------------|
+| Root CA included | Optional - for operational simplicity |
+| Root CA missing (Type 3a only) | **Required** - to solve rotation issue |
 
 ---
 
@@ -525,7 +679,7 @@ echo | openssl s_client -connect <api-hostname>:6443 -showcerts 2>/dev/null | gr
 | **Type 1: OpenShift-Managed** | ✅ Yes (but configure custom cert first if you plan to use one) | 🟢 LOW |
 | **Type 2: RedHat-Managed** | ✅ Yes | 🟢 LOW |
 | **Type 3a: Custom - Well-Known CA** | ✅ Yes (if root CA included) | 🟢 LOW |
-| **Type 3b: Custom - Self-Signed CA** | ✅ Yes (if root CA included) | 🟡 MEDIUM |
+| **Type 3b: Custom - Self-Signed CA** | ✅ Yes (if root CA included) | 🟢 LOW |
 
 **Important Notes:**
 - **Automatic CA Bundle Handling**: ACM automatically handles CA bundle distribution to managed clusters during import. Users do not need to manually provide CA bundles.

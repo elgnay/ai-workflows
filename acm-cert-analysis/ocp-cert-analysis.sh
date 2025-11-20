@@ -168,9 +168,9 @@ print_header "Step 4: Retrieve CA Bundle"
 case "$CERT_TYPE" in
     "Type1-OpenShift-Managed")
         print_info "Retrieving OpenShift-managed CA bundle..."
-        echo -e "${BLUE}Command: oc get configmap kube-apiserver-server-ca -n openshift-kube-apiserver -o jsonpath='{.data.ca-bundle\.crt}' > \"${WORKDIR}/kube-apiserver-ca-bundle.crt\"${NC}\n"
-        oc get configmap kube-apiserver-server-ca -n openshift-kube-apiserver -o jsonpath='{.data.ca-bundle\.crt}' > "${WORKDIR}/kube-apiserver-ca-bundle.crt"
-        CA_BUNDLE="${WORKDIR}/kube-apiserver-ca-bundle.crt"
+        echo -e "${BLUE}Command: oc get configmap kube-apiserver-server-ca -n openshift-kube-apiserver -o jsonpath='{.data.ca-bundle\.crt}' > \"${WORKDIR}/ca-bundle.crt\"${NC}\n"
+        oc get configmap kube-apiserver-server-ca -n openshift-kube-apiserver -o jsonpath='{.data.ca-bundle\.crt}' > "${WORKDIR}/ca-bundle.crt"
+        CA_BUNDLE="${WORKDIR}/ca-bundle.crt"
         CERT_COUNT=$(grep -c "BEGIN CERTIFICATE" "${CA_BUNDLE}")
         print_success "CA bundle retrieved: $CERT_COUNT certificates"
         ;;

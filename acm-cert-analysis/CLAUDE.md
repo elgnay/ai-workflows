@@ -206,6 +206,6 @@ Check Issuer
 | Type 1: OpenShift-Managed | ✅ Yes (but configure custom cert first if you plan to use one) | 🟢 LOW |
 | Type 2: RedHat-Managed | ✅ Yes | 🟢 LOW |
 | Type 3a: Custom - Well-Known | ✅ Yes (if root CA included) | 🟢 LOW |
-| Type 3b: Custom - Self-Signed | ✅ Yes (if root CA included) | 🟡 MEDIUM |
+| Type 3b: Custom - Self-Signed | ✅ Yes (if root CA included) | 🟢 LOW |
 
 **Important Note for Type 1**: There is NO risk in using OpenShift-Managed certificates with ACM as long as you don't change certificate types later. The ONLY risk is **changing certificate types (from OpenShift-Managed to Custom) AFTER ACM installation**, which causes managed clusters to enter an unknown state. If you plan to use custom certificates, configure them BEFORE installing ACM.

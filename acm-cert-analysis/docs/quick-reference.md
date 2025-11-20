@@ -52,7 +52,7 @@ Otherwise, it's a **Self-Managed OpenShift Cluster**.
 | **Type 1: OpenShift-Managed** | ✅ Yes (but configure custom cert first if you plan to use one) | 🟢 LOW |
 | **Type 2: RedHat-Managed** | ✅ Yes | 🟢 LOW |
 | **Type 3a: Custom - Well-Known CA** | ✅ Yes (if root CA included) | 🟢 LOW |
-| **Type 3b: Custom - Self-Signed CA** | ✅ Yes (if root CA included) | 🟡 MEDIUM |
+| **Type 3b: Custom - Self-Signed CA** | ✅ Yes (if root CA included) | 🟢 LOW |
 
 **Important Notes:**
 - **Automatic CA Bundle Handling**: ACM automatically handles CA bundle distribution to managed clusters during import. Users do not need to manually provide CA bundles.

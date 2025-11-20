@@ -87,7 +87,18 @@ oc whoami --show-server
 - [ ] `oc whoami --show-server` returns a valid API server URL
 - [ ] You can successfully connect to the cluster
 
-**Note:** All subsequent `oc` commands in this workflow will use this kubeconfig file. The `KUBECONFIG` environment variable will remain set for your current shell session.
+**Note:** All subsequent `oc` commands in this workflow will use this kubeconfig file.
+
+**🔴 CRITICAL - KUBECONFIG PERSISTENCE:**
+
+If you are running commands manually in a shell, the `KUBECONFIG` environment variable will persist for your current shell session.
+
+**However**, if you are using an automation tool or AI agent that executes each command in a separate shell session, you MUST include the `export KUBECONFIG=...` statement in EVERY command that uses `oc`.
+
+For automation/AI agents, all `oc` commands must follow this pattern:
+```bash
+export KUBECONFIG="/path/to/your/kubeconfig" && oc <command>
+```
 
 **DO NOT proceed to Step 2 until this verification is complete.**
 
@@ -97,10 +108,18 @@ oc whoami --show-server
 
 **⚠️ IMPORTANT**: Use the EXACT command below. Do NOT try to combine this with other commands or use `$(...)` syntax.
 
+**🔴 CRITICAL**: If using automation/AI agents, you MUST include the `export KUBECONFIG=...` statement in this command.
+
 Retrieve the external API server URL:
 
+**For manual shell execution:**
 ```bash
 oc get infrastructure cluster -o jsonpath='{.status.apiServerURL}'
+```
+
+**For automation/AI agents:**
+```bash
+export KUBECONFIG="/path/to/your/kubeconfig" && oc get infrastructure cluster -o jsonpath='{.status.apiServerURL}'
 ```
 
 **Expected output:** `https://api.<cluster-name>.<domain>.com:6443`
@@ -111,7 +130,9 @@ oc get infrastructure cluster -o jsonpath='{.status.apiServerURL}'
 
 ## Step 3: Create Working Directory and Retrieve Serving Certificate
 
-**Important:** Ensure you run all commands in this workflow in the same shell session to maintain environment variables like `WORKDIR` and `KUBECONFIG`.
+**Important for manual shell execution:** Ensure you run all commands in this workflow in the same shell session to maintain environment variables like `WORKDIR`, `API_HOSTNAME`, `API_PORT`, and `KUBECONFIG`.
+
+**Important for automation/AI agents:** Since each command may run in a separate shell session, you must either chain commands together with `&&` or re-set variables in every command that uses them. See the specific "For automation/AI agents" commands below.
 
 **⚠️ REMINDER**: All commands below use backticks (`` ` ``) for command substitution. Do NOT change to `$(...)` syntax.
 
@@ -125,6 +146,9 @@ TIMESTAMP=`date +%Y%m%d-%H%M%S` && WORKDIR="run-${TIMESTAMP}" && mkdir -p "${WOR
 
 Extract the API hostname and port, then retrieve the certificate chain:
 
+**🔴 CRITICAL**: If using automation/AI agents, prepend `export KUBECONFIG="/path/to/your/kubeconfig" &&` to this command.
+
+**For manual shell execution:**
 ```bash
 # Extract API hostname and port using sed (shell-agnostic approach)
 API_ENDPOINT=`oc whoami --show-server`
@@ -134,11 +158,30 @@ echo "API Hostname: ${API_HOSTNAME}"
 echo "API Port: ${API_PORT}"
 ```
 
+**For automation/AI agents (each command runs in separate shell):**
+```bash
+# Must set KUBECONFIG and extract variables in the same command
+export KUBECONFIG="/path/to/your/kubeconfig" && API_ENDPOINT=`oc whoami --show-server` && API_HOSTNAME=`echo "$API_ENDPOINT" | sed 's|https://||' | sed 's|:.*||'` && API_PORT=`echo "$API_ENDPOINT" | sed 's|.*:||'` && echo "API Hostname: ${API_HOSTNAME}" && echo "API Port: ${API_PORT}"
+```
+
+---
+
 Retrieve the certificate chain from the API server and separate the leaf certificate from intermediate CAs:
 
+**🔴 CRITICAL - Variable Persistence for Automation/AI Agents:**
+
+The commands below use `API_HOSTNAME` and `API_PORT` variables. If using automation/AI agents that execute each command in separate shell sessions, you **MUST** re-set these variables in the same command, or chain all variable-setting and usage together with `&&`.
+
+**For manual shell execution:**
 ```bash
 # Get the full chain from the server
 WORKDIR=`cat .current_workdir` && echo | openssl s_client -connect ${API_HOSTNAME}:${API_PORT} -showcerts 2>/dev/null > "${WORKDIR}/openssl_output.txt" && echo "Certificate chain retrieved"
+```
+
+**For automation/AI agents:**
+```bash
+# Must re-set variables in the same command
+export KUBECONFIG="/path/to/your/kubeconfig" && API_ENDPOINT=`oc whoami --show-server` && API_HOSTNAME=`echo "$API_ENDPOINT" | sed 's|https://||' | sed 's|:.*||'` && API_PORT=`echo "$API_ENDPOINT" | sed 's|.*:||'` && WORKDIR=`cat .current_workdir` && echo | openssl s_client -connect ${API_HOSTNAME}:${API_PORT} -showcerts 2>/dev/null > "${WORKDIR}/openssl_output.txt" && echo "Certificate chain retrieved"
 
 # Extract and separate certificates
 WORKDIR=`cat .current_workdir` && sed -n '/BEGIN CERTIFICATE/,/END CERTIFICATE/p' "${WORKDIR}/openssl_output.txt" > "${WORKDIR}/fullchain.pem" && echo "Full chain extracted"
@@ -249,6 +292,8 @@ openssl x509 -in "${WORKDIR}/serving-cert.pem" -noout -issuer
 
 #### Step 4.2: Check for Custom Certificate Configuration
 
+**🔴 CRITICAL**: If using automation/AI agents, prepend `export KUBECONFIG="/path/to/your/kubeconfig" &&` to all `oc` commands in Steps 4.2 and 4.3.
+
 Check if custom certificates are configured in the apiserver resource:
 
 ```bash
@@ -337,6 +382,8 @@ oc get secret <secret-name> -n openshift-config --ignore-not-found
 ---
 
 ## Step 5: Retrieve CA Bundle Based on Certificate Type
+
+**🔴 CRITICAL**: If using automation/AI agents, prepend `export KUBECONFIG="/path/to/your/kubeconfig" &&` to all `oc` commands in Step 5.
 
 ### Step 5A: OpenShift-Managed Certificate
 
@@ -593,6 +640,8 @@ Continue until you find the root CA where subject == issuer.
 ---
 
 ## Step 8: Test Connectivity
+
+**🔴 CRITICAL**: If using automation/AI agents, prepend `export KUBECONFIG="/path/to/your/kubeconfig" &&` to all commands in Step 8 that use `oc`.
 
 ### For Type 1: OpenShift-Managed Certificate
 
