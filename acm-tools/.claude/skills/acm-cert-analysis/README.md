@@ -117,6 +117,17 @@ bash .claude/skills/acm-cert-analysis/scripts/run-analysis.sh
 - Verify ACM has detected and distributed the CA bundle
 - Klusterlets on managed clusters will use the CA bundle to verify the hub Kube APIServer
 
+## Test Scenarios
+
+See [TestScenarios.md](TestScenarios.md) for a comprehensive test matrix covering all combinations of:
+- Certificate types (OpenShift-Managed, RedHat-Managed, Custom CA)
+- Issuer types (Self-signed, Well-known CA)
+- Root CA inclusion status
+- ACM installation status (Pre/Post installation)
+- ServerVerificationStrategy configurations
+
+Each test scenario links to its expected output for verification.
+
 ## Dependencies
 
 This skill uses two other skills:
@@ -125,9 +136,11 @@ This skill uses two other skills:
 
 ## Files
 
-- `SKILL.md` - Skill definition and documentation
+- `README.md` - This file - comprehensive skill documentation
+- `SKILL.md` - Skill definition and metadata
+- `TestScenarios.md` - Test scenarios matrix with links to expected outputs
 - `scripts/run-analysis.sh` - Main orchestration script
-- `README.md` - This file
+- `output/` - Directory containing test scenario outputs (pre-01.txt through post-09.txt)
 
 ## Prerequisites
 

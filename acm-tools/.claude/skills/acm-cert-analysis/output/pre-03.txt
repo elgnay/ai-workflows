@@ -1,0 +1,59 @@
+ACM Hub Cluster Certificate Analysis
+
+━━━ Step 1: Cluster Information
+
+Kubeconfig:    kubeconfig.c5
+API Endpoint:  https://api.server-foundation-sno-lite-sqfc2.dev04.red-chesterfield.com:6443
+OCP Version:   4.19.3
+Current User:  system:admin
+
+━━━ Step 2: Cluster Kube APIServer Certificates
+
+Certificate Type: Custom Certificate (Private CA)
+Subject:          CN=api.server-foundation-sno-lite-sqfc2.dev04.red-chesterfield.com
+Issuer:           CN=signer1.example.com
+Valid Until:      Mar 11 03:38:45 2026 GMT
+Root CA Included: Yes
+
+Certificate Chain:
+  [1] Subject: CN=api.server-foundation-sno-lite-sqfc2.dev04.red-chesterfield.com
+      Issuer:  CN=signer1.example.com
+
+  [2] Subject: CN=signer1.example.com
+      Issuer:  CN=example.com
+
+  [3] Subject: CN=example.com
+      Issuer:  CN=example.com
+
+━━━ Step 3: ACM Status and Configuration
+
+✓ ACM Status: NOT INSTALLED
+
+━━━ Step 4: ACM Certificate Management Analysis
+
+Recommended ServerVerificationStrategy:
+
+  Recommended: UseAutoDetectedCABundle
+  • Private CA certificates require auto-detection with full CA chain
+
+═══════════════════════════════════════════════════════════════
+
+━━━ Step 5: Analysis Summary
+
+OCP API Endpoint: https://api.server-foundation-sno-lite-sqfc2.dev04.red-chesterfield.com:6443
+OCP Version: 4.19.3
+Certificate Type: Custom-SelfSigned
+Root CA Included: Yes
+ACM: Not installed
+
+✓ Safe to install ACM
+
+Root CA is included in certificate chain
+
+Next steps:
+  1. Proceed with ACM installation
+
+Note:
+  • ACM will automatically detect the CA bundle and distribute it to managed clusters
+  • No additional configuration required
+

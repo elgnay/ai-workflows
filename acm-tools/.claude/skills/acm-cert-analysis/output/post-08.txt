@@ -1,0 +1,70 @@
+ACM Hub Cluster Certificate Analysis
+
+━━━ Step 1: Cluster Information
+
+Kubeconfig:    kubeconfig.rosa
+API Endpoint:  https://api.me958-6jp9a-hd5.9j34.p3.openshiftapps.com:443
+OCP Version:   4.19.19
+Current User:  cluster-admin
+
+━━━ Step 2: Cluster Kube APIServer Certificates
+
+Certificate Type: RedHat-Managed Certificate
+Subject:          CN=*.me958-6jp9a-hd5.9j34.p3.openshiftapps.com
+Issuer:           C=US, O=Let's Encrypt, CN=R13
+Valid Until:      Mar  1 00:37:28 2026 GMT
+Root CA Included: No
+
+Certificate Chain:
+  [1] Subject: CN=*.me958-6jp9a-hd5.9j34.p3.openshiftapps.com
+      Issuer:  C=US, O=Let's Encrypt, CN=R13
+
+  [2] Subject: C=US, O=Let's Encrypt, CN=R13
+      Issuer:  C=US, O=Internet Security Research Group, CN=ISRG Root X1
+
+  [3] Subject: C=US, O=Internet Security Research Group, CN=ISRG Root X1 (Not Included)
+      Issuer:  C=US, O=Internet Security Research Group, CN=ISRG Root X1
+
+━━━ Step 3: ACM Status and Configuration
+
+✓ ACM Status: INSTALLED
+  Version:   2.14.1
+  Namespace: open-cluster-management
+  Name:      multiclusterhub
+  Status:    Running
+  ServerVerificationStrategy: UseAutoDetectedCABundle
+
+━━━ Step 4: ACM Certificate Management Analysis
+
+Recommended ServerVerificationStrategy:
+
+  Recommended: UseSystemTruststore
+  • RedHat-managed certificates use well-known CAs trusted by system stores
+
+  Current: UseAutoDetectedCABundle
+  Status: ⚠️  Does not match recommendation
+
+═══════════════════════════════════════════════════════════════
+
+━━━ Step 5: Analysis Summary
+
+OCP API Endpoint: https://api.me958-6jp9a-hd5.9j34.p3.openshiftapps.com:443
+OCP Version: 4.19.19
+Certificate Type: RedHat-Managed
+Root CA Included: No
+ACM: Installed (Version 2.14.1)
+ServerVerificationStrategy: UseAutoDetectedCABundle
+
+ℹ Configuration Issue
+
+Current configuration will cause cluster import failures
+  • UseAutoDetectedCABundle cannot detect well-known CA roots
+  • Cluster import will fail with certificate validation errors
+
+Required action:
+  • Configure UseSystemTruststore as the KubeAPIServer verification strategy in the global KlusterletConfig
+
+Why this works:
+  • RedHat-managed certificates use well-known CAs (e.g., Let's Encrypt)
+  • Well-known CAs are already trusted by the system trust store
+

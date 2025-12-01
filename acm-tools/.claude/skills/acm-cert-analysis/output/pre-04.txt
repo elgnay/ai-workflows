@@ -1,0 +1,69 @@
+ACM Hub Cluster Certificate Analysis
+
+━━━ Step 1: Cluster Information
+
+Kubeconfig:    kubeconfig.c6
+API Endpoint:  https://api.server-foundation-sno-lite-46gr7.dev04.red-chesterfield.com:6443
+OCP Version:   4.19.3
+Current User:  system:admin
+
+━━━ Step 2: Cluster Kube APIServer Certificates
+
+Certificate Type: Custom Certificate (Well-Known CA)
+Subject:          CN=api.server-foundation-sno-lite-46gr7.dev04.red-chesterfield.com
+Issuer:           C=US, O=Let's Encrypt, CN=R12
+Valid Until:      Mar  1 02:34:38 2026 GMT
+Root CA Included: No
+
+Certificate Chain:
+  [1] Subject: CN=api.server-foundation-sno-lite-46gr7.dev04.red-chesterfield.com
+      Issuer:  C=US, O=Let's Encrypt, CN=R12
+
+  [2] Subject: C=US, O=Let's Encrypt, CN=R12
+      Issuer:  C=US, O=Internet Security Research Group, CN=ISRG Root X1
+
+  [3] Subject: C=US, O=Internet Security Research Group, CN=ISRG Root X1 (Not Included)
+      Issuer:  C=US, O=Internet Security Research Group, CN=ISRG Root X1
+
+━━━ Step 3: ACM Status and Configuration
+
+✓ ACM Status: NOT INSTALLED
+
+━━━ Step 4: ACM Certificate Management Analysis
+
+Recommended ServerVerificationStrategy:
+
+  Recommended: UseSystemTruststore
+  • UseSystemTruststore is recommended when root CA is not in the chain
+  • Alternative: Add root CA to chain, then use UseAutoDetectedCABundle
+
+═══════════════════════════════════════════════════════════════
+
+━━━ Step 5: Analysis Summary
+
+OCP API Endpoint: https://api.server-foundation-sno-lite-46gr7.dev04.red-chesterfield.com:6443
+OCP Version: 4.19.3
+Certificate Type: Custom-WellKnown
+Root CA Included: No
+ACM: Not installed
+
+ℹ ACM may work initially but has certificate rotation risk
+
+Root CA is NOT included in certificate chain
+
+Recommended actions (choose one):
+
+  Option 1: Add root CA to certificate chain
+    • Add the root CA certificate to the certificate chain
+    • Then proceed with ACM installation
+    • No additional ACM configuration needed
+
+  Option 2: Use system trust store
+    • Proceed with ACM installation as-is
+    • Configure UseSystemTruststore as the KubeAPIServer verification strategy in the global KlusterletConfig after installation
+    • System trust store already contains well-known CA root certificates
+
+Risk if neither option is implemented:
+  • Certificate rotation with different intermediate CA will cause managed clusters to enter unknown state
+  • Without root CA in chain, managed clusters cannot verify certificates signed by different intermediates
+

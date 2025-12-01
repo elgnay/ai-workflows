@@ -1,0 +1,68 @@
+ACM Hub Cluster Certificate Analysis
+
+━━━ Step 1: Cluster Information
+
+Kubeconfig:    kubeconfig.c2
+API Endpoint:  https://api.server-foundation-sno-lite-qrtkx.dev04.red-chesterfield.com:6443
+OCP Version:   4.19.3
+Current User:  system:admin
+
+━━━ Step 2: Cluster Kube APIServer Certificates
+
+Certificate Type: Custom Certificate (Private CA)
+Subject:          CN=api.server-foundation-sno-lite-qrtkx.dev04.red-chesterfield.com
+Issuer:           CN=signer1.example.com
+Valid Until:      Feb 26 06:13:38 2026 GMT
+Root CA Included: Yes
+
+Certificate Chain:
+  [1] Subject: CN=api.server-foundation-sno-lite-qrtkx.dev04.red-chesterfield.com
+      Issuer:  CN=signer1.example.com
+
+  [2] Subject: CN=signer1.example.com
+      Issuer:  CN=example.com
+
+  [3] Subject: CN=example.com
+      Issuer:  CN=example.com
+
+━━━ Step 3: ACM Status and Configuration
+
+✓ ACM Status: INSTALLED
+  Version:   2.14.1
+  Namespace: open-cluster-management
+  Name:      multiclusterhub
+  Status:    Running
+  ServerVerificationStrategy: UseAutoDetectedCABundle
+
+━━━ Step 4: ACM Certificate Management Analysis
+
+Recommended ServerVerificationStrategy:
+
+  Recommended: UseAutoDetectedCABundle
+  • Private CA certificates require auto-detection with full CA chain
+
+  Current: UseAutoDetectedCABundle
+  Status: ✓ Matches recommendation
+
+═══════════════════════════════════════════════════════════════
+
+━━━ Step 5: Analysis Summary
+
+OCP API Endpoint: https://api.server-foundation-sno-lite-qrtkx.dev04.red-chesterfield.com:6443
+OCP Version: 4.19.3
+Certificate Type: Custom-SelfSigned
+Root CA Included: Yes
+ACM: Installed (Version 2.14.1)
+ServerVerificationStrategy: UseAutoDetectedCABundle
+
+✓ Configuration: Compatible
+
+Root CA is included in certificate chain
+  • ACM will automatically detect and distribute the CA bundle to managed clusters
+  • No additional configuration required
+
+Important considerations:
+  • Certificate rotation and intermediate CA changes are safe (as long as full chain is included)
+  • ⚠️  Do NOT change the root CA - this may cause managed clusters to enter unknown state
+  • If you need to change the root CA, run skill acm-cert-change-assessment for impact and mitigation guidance
+

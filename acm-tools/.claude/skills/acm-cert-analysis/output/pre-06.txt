@@ -1,0 +1,58 @@
+ACM Hub Cluster Certificate Analysis
+
+━━━ Step 1: Cluster Information
+
+Kubeconfig:    kubeconfig.rosa
+API Endpoint:  https://api.me958-6jp9a-hd5.9j34.p3.openshiftapps.com:443
+OCP Version:   4.19.19
+Current User:  cluster-admin
+
+━━━ Step 2: Cluster Kube APIServer Certificates
+
+Certificate Type: RedHat-Managed Certificate
+Subject:          CN=*.me958-6jp9a-hd5.9j34.p3.openshiftapps.com
+Issuer:           C=US, O=Let's Encrypt, CN=R13
+Valid Until:      Mar  1 00:37:28 2026 GMT
+Root CA Included: No
+
+Certificate Chain:
+  [1] Subject: CN=*.me958-6jp9a-hd5.9j34.p3.openshiftapps.com
+      Issuer:  C=US, O=Let's Encrypt, CN=R13
+
+  [2] Subject: C=US, O=Let's Encrypt, CN=R13
+      Issuer:  C=US, O=Internet Security Research Group, CN=ISRG Root X1
+
+  [3] Subject: C=US, O=Internet Security Research Group, CN=ISRG Root X1 (Not Included)
+      Issuer:  C=US, O=Internet Security Research Group, CN=ISRG Root X1
+
+━━━ Step 3: ACM Status and Configuration
+
+✓ ACM Status: NOT INSTALLED
+
+━━━ Step 4: ACM Certificate Management Analysis
+
+Recommended ServerVerificationStrategy:
+
+  Recommended: UseSystemTruststore
+  • RedHat-managed certificates use well-known CAs trusted by system stores
+
+═══════════════════════════════════════════════════════════════
+
+━━━ Step 5: Analysis Summary
+
+OCP API Endpoint: https://api.me958-6jp9a-hd5.9j34.p3.openshiftapps.com:443
+OCP Version: 4.19.19
+Certificate Type: RedHat-Managed
+Root CA Included: No
+ACM: Not installed
+
+✓ Safe to install ACM
+
+Next steps:
+  1. Proceed with ACM installation
+  2. Configure UseSystemTruststore as the KubeAPIServer verification strategy in the global KlusterletConfig after installation
+
+Note:
+  • Well-known CAs (e.g., Let's Encrypt) are automatically trusted by system trust stores
+  • No additional configuration required beyond step 2
+
