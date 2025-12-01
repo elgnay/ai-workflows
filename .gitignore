@@ -1,7 +1,8 @@
 # Temporary files
 *.xlsx
 *.csv
-run-*
+run-*/
+audit-logs-*/
 
 # Files containing credentials and tokens
 credentials.json
@@ -12,7 +13,11 @@ token.json
 */bin/
 
 # Tool configurations
-*/.claude
 */GEMINI.md
 */kubeconfig.*
-*/.current_workdir
+.current_workdir
+
+# Temporary files
+*.tmp
+*.swp
+.DS_Store
