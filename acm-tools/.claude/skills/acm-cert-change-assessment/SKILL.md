@@ -1,12 +1,12 @@
 ---
 name: acm-cert-change-assessment
-description: Assess the risk of changing kube-apiserver certificates on clusters with ACM. Evaluates impact of certificate type changes, rotations, root CA changes, and intermediate CA changes. Provides risk analysis and mitigation guidance. Accepts --kubeconfig (optional, defaults to KUBECONFIG env var) parameter.
+description: "[COMING SOON] Assess the risk of changing kube-apiserver certificates on clusters with ACM. Evaluates impact of certificate type changes, rotations, root CA changes, and intermediate CA changes. Provides risk analysis and mitigation guidance. Accepts --kubeconfig (optional, defaults to KUBECONFIG env var) parameter."
 allowed-tools: [Bash, Read]
 ---
 
 # ACM Certificate Change Risk Assessment
 
-> ⚠️ **STATUS: NOT YET IMPLEMENTED**
+> ⚠️ **STATUS: COMING SOON**
 > This skill is currently under development and not yet available for use.
 
 This skill helps you assess the risk and impact of changing kube-apiserver certificates on OpenShift clusters with ACM installed or planned.

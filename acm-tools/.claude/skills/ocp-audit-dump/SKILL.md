@@ -1,3 +1,9 @@
+---
+name: ocp-audit-dump
+description: Dump OpenShift kube-apiserver audit logs from control plane nodes to local filesystem for faster querying. Accepts --kubeconfig (optional, defaults to KUBECONFIG env var) parameter.
+allowed-tools: [Bash, Read]
+---
+
 # OCP Audit Log Dump Skill
 
 ## Description

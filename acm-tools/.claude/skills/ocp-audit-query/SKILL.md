@@ -1,3 +1,9 @@
+---
+name: ocp-audit-query
+description: Query OpenShift audit logs with powerful filtering and beautiful output formatting. Supports both online (direct cluster query) and offline (local files) modes. Accepts --kubeconfig, -d (directory), filter parameters (--verbs, --resources, --users, --namespaces, --status-codes, --start-time), and --output (format) parameters.
+allowed-tools: [Bash, Read]
+---
+
 # OCP Audit Log Query Skill
 
 ## Description

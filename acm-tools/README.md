@@ -6,6 +6,17 @@ A collection of Claude Code skills for analyzing and managing Red Hat Advanced C
 
 This toolkit provides automated analysis and assessment capabilities for OpenShift clusters, with a focus on certificate management, ACM integration, and audit log analysis. The skills can be used independently or in combination to provide comprehensive cluster analysis.
 
+## Quick Reference
+
+### Slash Commands
+
+**List all available skills:**
+```
+/skills
+```
+
+This command provides a quick overview of all available skills in the project with their descriptions and parameters.
+
 ## Available Skills
 
 ### Certificate & ACM Management
